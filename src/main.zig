@@ -1,4 +1,5 @@
 const std = @import("std");
+const server = @import("server.zig");
 
 pub fn main() !void {
     // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
@@ -9,16 +10,16 @@ pub fn main() !void {
     // stdout, not any debugging messages.
     const stdout_file = std.io.getStdOut().writer();
     var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
+    // get a server
+    const addr = try std.net.Address.resolveIp("127.0.0.1", 8080);
+    const opts = server.ServerOpts{
+        .addr = addr,
+        .message = "hello, jacob",
+    };
+
+    var srv = try server.Server.init(opts);
+    try srv.listen();
 
     try bw.flush(); // don't forget to flush!
-}
-
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
 }
