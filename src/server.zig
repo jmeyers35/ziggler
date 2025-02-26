@@ -1,6 +1,6 @@
 const std = @import("std");
-const http = std.http;
 const net = std.net;
+const log = std.log;
 const mem = std.mem;
 
 const Address = net.Address;
@@ -27,6 +27,21 @@ pub const Server = struct {
         var srv = try self.addr.listen(.{});
         defer srv.deinit();
 
-        _ = try srv.accept();
+        while (true) {
+            const conn = try srv.accept();
+            log.info("establised connection: {any}\n", .{conn});
+
+            // TODO: bigger buffer? figure out how large single messages can be?
+            // probably quite big if we handle arbitrarily-sized values
+            var buf: [1024]u8 = undefined;
+            while (true) {
+                const n = try conn.stream.read(&buf);
+                if (n == 0) {
+                    log.info("connection closed", .{});
+                    break;
+                }
+                log.info("read {d} bytes: {s}\n", .{ n, buf });
+            }
+        }
     }
 };
