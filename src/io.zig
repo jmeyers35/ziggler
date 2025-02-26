@@ -14,6 +14,9 @@ pub const IO = struct {
     }
 
     pub fn accept(io: *IO) !void {
+        assert(io.conn == null);
+        assert(!io.open);
+
         io.conn = try io.srv.accept();
         log.info("establised connection: {any}\n", .{io.conn});
         io.open = true;
@@ -22,7 +25,17 @@ pub const IO = struct {
     pub fn read(io: *IO, buf: []u8) !usize {
         assert(io.open);
         assert(io.conn != null);
+
         return io.conn.?.stream.read(buf);
+    }
+
+    pub fn close(io: *IO) !void {
+        assert(io.open);
+        assert(io.conn != null);
+
+        io.conn.?.stream.close();
+        io.conn = null;
+        io.open = false;
     }
 
     pub fn deinit(io: *IO) void {

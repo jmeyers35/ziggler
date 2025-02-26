@@ -26,6 +26,7 @@ pub fn ServerType(comptime IOType: type) type {
                     const n = try server.io.read(&buf);
                     if (n == 0) {
                         log.info("connection closed", .{});
+                        try server.io.close();
                         break;
                     }
                     log.info("read {d} bytes: {s}\n", .{ n, buf });
