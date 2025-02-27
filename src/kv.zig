@@ -2,14 +2,11 @@ const std = @import("std");
 
 // Uses a simple hashmap to keep string-string kv pairs
 pub const InMemoryStore = struct {
-    map: std.AutoArrayHashMap([]u8, []u8),
-    alloc: std.mem.Allocator,
+    map: std.StringArrayHashMap([]const u8),
 
-    pub fn init() @This() {
-        const gpa = std.heap.GeneralPurposeAllocator(.{});
+    pub fn init(alloc: std.mem.Allocator) @This() {
         return .{
-            .alloc = gpa,
-            .map = std.AutoHashMap([]u8, []u8).init(gpa),
+            .map = std.StringArrayHashMap([]const u8).init(alloc),
         };
     }
 
@@ -17,11 +14,34 @@ pub const InMemoryStore = struct {
         store.map.deinit();
     }
 
-    pub fn put(store: *InMemoryStore, key: []u8, value: []u8) !void {
+    pub fn put(store: *InMemoryStore, key: []const u8, value: []const u8) !void {
         try store.map.put(key, value);
     }
 
-    pub fn get(store: *InMemoryStore, key: []u8) ?[]u8 {
+    pub fn get(store: *InMemoryStore, key: []const u8) ?[]const u8 {
         return store.map.get(key);
     }
 };
+
+const testing = std.testing;
+const expect = testing.expect;
+const expectEqual = testing.expectEqual;
+
+test "basic functionality" {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const alloc = gpa.allocator();
+    var kv = InMemoryStore.init(alloc);
+    defer kv.deinit();
+
+    // zig learning time - if this call fails, the entire test will fail
+    try kv.put("hello", "world");
+
+    const got = kv.get("hello");
+
+    try expect(got != null);
+    try expectEqual("world", got);
+
+    // value that's not there
+    const gotNotThere = kv.get("foobar");
+    try expect(gotNotThere == null);
+}
