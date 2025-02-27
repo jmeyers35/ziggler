@@ -28,7 +28,9 @@ const expect = testing.expect;
 const expectEqual = testing.expectEqual;
 
 test "basic functionality" {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.GeneralPurposeAllocator(.{
+        .verbose_log = true,
+    }){};
     const alloc = gpa.allocator();
     var kv = InMemoryStore.init(alloc);
     defer kv.deinit();

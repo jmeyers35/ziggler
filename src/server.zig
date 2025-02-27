@@ -2,15 +2,17 @@ const std = @import("std");
 const log = std.log;
 
 // TODO: pass address in here and let server configure the IO?
-pub fn ServerType(comptime IOType: type) type {
+pub fn ServerType(comptime IOType: type, comptime StorageType: type) type {
     return struct {
         const Server = @This();
         // Configured options
         io: IOType,
+        storage: StorageType,
 
-        pub fn init(io: IOType) !Server {
+        pub fn init(io: IOType, storage: StorageType) !Server {
             return .{
                 .io = io,
+                .storage = storage,
             };
         }
 
@@ -27,11 +29,18 @@ pub fn ServerType(comptime IOType: type) type {
                     if (n == 0) {
                         log.info("connection closed", .{});
                         try server.io.close();
+                        const lastStored = server.storage.get("foo") orelse "<none>";
+                        log.info("last thing stored at foo: {s}\n", .{lastStored});
                         break;
                     }
                     log.info("read {d} bytes: {s}\n", .{ n, buf });
+                    try server.storeBytes("foo", buf[0..n]);
                 }
             }
+        }
+
+        fn storeBytes(server: *Server, key: []const u8, bytes: []const u8) !void {
+            try server.storage.put(key, bytes);
         }
     };
 }
