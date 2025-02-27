@@ -29,6 +29,13 @@ pub const IO = struct {
         return io.conn.?.stream.read(buf);
     }
 
+    pub fn send(io: *IO, bytes: []const u8) !void {
+        assert(io.open);
+        assert(io.conn != null);
+
+        return io.conn.?.stream.writeAll(bytes);
+    }
+
     pub fn close(io: *IO) !void {
         assert(io.open);
         assert(io.conn != null);

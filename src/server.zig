@@ -44,16 +44,27 @@ pub fn ServerType(comptime IOType: type, comptime StorageType: type) type {
         }
 
         fn handle_request(server: *Server, request: []const u8) !void {
-            const parsed = try protocol.parse_request(request);
+            const parsed = protocol.parse_request(request) catch |err| {
+                try server.io.send("Parse Error");
+                log.err("error parsing request: {any}", .{err});
+                return;
+            };
+
             if (parsed.operation == Operation.get) {
-                const got = server.storage.get(parsed.key);
-                log.info("got value {any} for key {s}", .{ got, parsed.key });
-                // TODO - respond by writing back to stream
+                const got = server.storage.get(parsed.key) orelse "<null>";
+                log.info("got value {s} for key {s}", .{ got, parsed.key });
+                // TODO: gracefully handle nulls? how should we handle not found? check what Redis does
+                try server.io.send(got);
             } else if (parsed.operation == Operation.set) {
                 assert(parsed.value != null);
                 const val = parsed.value.?;
-                try server.storage.set(parsed.key, val);
+                server.storage.set(parsed.key, val) catch |err| {
+                    try server.io.send("Error"); // TODO: define errors in protocol
+                    log.err("error writing to storage: {any}", .{err});
+                    return;
+                };
                 log.info("set key {s} to {s}", .{ parsed.key, val });
+                try server.io.send("OK");
             }
         }
     };
