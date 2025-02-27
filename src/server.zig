@@ -1,5 +1,8 @@
 const std = @import("std");
 const log = std.log;
+const assert = std.debug.assert;
+const protocol = @import("protocol.zig");
+const Operation = protocol.Operation;
 
 // TODO: pass address in here and let server configure the IO?
 pub fn ServerType(comptime IOType: type, comptime StorageType: type) type {
@@ -25,22 +28,33 @@ pub fn ServerType(comptime IOType: type, comptime StorageType: type) type {
                 var buf: [1024]u8 = undefined;
 
                 while (true) {
+                    // TODO: handle connection reset errors, etc
                     const n = try server.io.read(&buf);
                     if (n == 0) {
                         log.info("connection closed", .{});
                         try server.io.close();
-                        const lastStored = server.storage.get("foo") orelse "<none>";
-                        log.info("last thing stored at foo: {s}\n", .{lastStored});
                         break;
                     }
-                    log.info("read {d} bytes: {s}\n", .{ n, buf });
-                    try server.storeBytes("foo", buf[0..n]);
+                    log.debug("got request: {s} n:{d}", .{ buf[0..n], n });
+
+                    // TODO: more graceful error handling
+                    try server.handle_request(buf[0..n]);
                 }
             }
         }
 
-        fn storeBytes(server: *Server, key: []const u8, bytes: []const u8) !void {
-            try server.storage.put(key, bytes);
+        fn handle_request(server: *Server, request: []const u8) !void {
+            const parsed = try protocol.parse_request(request);
+            if (parsed.operation == Operation.get) {
+                const got = server.storage.get(parsed.key);
+                log.info("got value {any} for key {s}", .{ got, parsed.key });
+                // TODO - respond by writing back to stream
+            } else if (parsed.operation == Operation.set) {
+                assert(parsed.value != null);
+                const val = parsed.value.?;
+                try server.storage.set(parsed.key, val);
+                log.info("set key {s} to {s}", .{ parsed.key, val });
+            }
         }
     };
 }

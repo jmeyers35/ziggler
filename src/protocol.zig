@@ -38,22 +38,25 @@ pub fn parse_request(request: []const u8) RequestParseError!ParsedRequest {
         return RequestParseError.InvalidOperation;
     }
 
+    var parsed: ParsedRequest = .{ .operation = parsed_op, .key = undefined, .value = null };
+
     const request_key = it.next();
     if (request_key == null) {
         // All requests must have a key present
         return RequestParseError.InvalidArguments;
     }
+    parsed.key = mem.trimRight(u8, request_key.?, "\n");
 
     const maybe_value = it.next();
     if (parsed_op == Operation.set and maybe_value == null) {
         // SET requests must also have a value
         return RequestParseError.InvalidArguments;
     }
-    return .{
-        .operation = parsed_op,
-        .key = request_key.?,
-        .value = maybe_value,
-    };
+    if (parsed_op == Operation.set) {
+        parsed.value = mem.trimRight(u8, maybe_value.?, "\n");
+    }
+
+    return parsed;
 }
 
 const testing = std.testing;
