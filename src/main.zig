@@ -5,6 +5,7 @@ const assert = std.debug.assert;
 const server = @import("server.zig");
 const io = @import("io.zig");
 const kv = @import("kv.zig");
+const storage = @import("storage.zig");
 
 const clap = @import("clap");
 
@@ -35,13 +36,15 @@ pub fn main() !void {
     const port: u16 = if (res.args.port) |p| p else 42069;
 
     const addr = try std.net.Address.resolveIp("127.0.0.1", port);
-    var netIO = try io.IO.init();
-    defer netIO.deinit();
+    var posIO = try io.PosixIO.init();
+    defer posIO.deinit();
 
-    var memStorage = kv.InMemoryStore.init(alloc);
-    defer memStorage.deinit();
+    const memStorage = kv.InMemoryStore.init(alloc);
 
-    var srv = try server.ServerType(io.IO, kv.InMemoryStore).init(netIO, memStorage, addr);
+    var diskStorage = try storage.StorageType(io.PosixIO, kv.InMemoryStore).init(&posIO, memStorage, "/tmp/ziggler/test");
+    defer diskStorage.deinit();
+
+    var srv = try server.ServerType(io.PosixIO, storage.StorageType(io.PosixIO, kv.InMemoryStore)).init(posIO, diskStorage, addr);
     log.info("starting ziggler server on port {d}", .{port});
     try srv.listen();
 }
