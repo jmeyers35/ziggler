@@ -5,12 +5,12 @@ const log = std.log;
 const assert = std.debug.assert;
 
 pub const IO = struct {
-    const Connection = struct {
+    const TCPConnection = struct {
         conn: ?net.Server.Connection,
         open: bool,
         srv: net.Server,
 
-        fn deinit(conn: *Connection) void {
+        fn deinit(conn: *TCPConnection) void {
             conn.srv.deinit();
             conn.srv = undefined;
             conn.open = false;
@@ -18,8 +18,7 @@ pub const IO = struct {
         }
     };
 
-    // TODO: fix stutter
-    conn: Connection,
+    tcp_conn: TCPConnection,
 
     pub fn init() !IO {
         return .{ .conn = .{
@@ -31,42 +30,42 @@ pub const IO = struct {
 
     // Network operations
     pub fn accept(io: *IO) !void {
-        assert(io.conn.conn == null);
-        assert(!io.conn.open);
+        assert(io.tcp_conn.conn == null);
+        assert(!io.tcp_conn.open);
 
-        io.conn.conn = try io.conn.srv.accept();
-        io.conn.open = true;
-        log.info("establised connection: {any}\n", .{io.conn});
+        io.tcp_conn.conn = try io.tcp_conn.srv.accept();
+        io.tcp_conn.open = true;
+        log.info("establised connection: {any}\n", .{io.tcp_conn});
     }
 
     pub fn listen(io: *IO, addr: net.Address) !void {
-        io.conn.srv = try addr.listen(.{});
+        io.tcp_conn.srv = try addr.listen(.{});
     }
 
     pub fn recv(io: *IO, buf: []u8) !usize {
-        assert(io.conn.open);
-        assert(io.conn.conn != null);
+        assert(io.tcp_conn.open);
+        assert(io.tcp_conn.conn != null);
 
-        return io.conn.conn.?.stream.read(buf);
+        return io.tcp_conn.conn.?.stream.read(buf);
     }
 
     pub fn send(io: *IO, bytes: []const u8) !void {
-        assert(io.conn.open);
-        assert(io.conn.conn != null);
+        assert(io.tcp_conn.open);
+        assert(io.tcp_conn.conn != null);
 
-        return io.conn.conn.?.stream.writeAll(bytes);
+        return io.tcp_conn.conn.?.stream.writeAll(bytes);
     }
 
     pub fn close_conn(io: *IO) !void {
-        assert(io.conn.open);
-        assert(io.conn.conn != null);
+        assert(io.tcp_conn.open);
+        assert(io.tcp_conn.conn != null);
 
-        io.conn.conn.?.stream.close();
-        io.conn.conn = null;
-        io.conn.open = false;
+        io.tcp_conn.conn.?.stream.close();
+        io.tcp_conn.conn = null;
+        io.tcp_conn.open = false;
     }
 
     pub fn deinit(io: *IO) void {
-        io.conn.deinit();
+        io.tcp_conn.deinit();
     }
 };
