@@ -2,6 +2,7 @@ const std = @import("std");
 const fmt = std.fmt;
 const log = std.log;
 const mem = std.mem;
+const net = std.net;
 
 const assert = std.debug.assert;
 
@@ -17,16 +18,19 @@ pub fn ServerType(comptime IOType: type, comptime StorageType: type) type {
         // Configured options
         io: IOType,
         storage: StorageType,
+        listenAddr: net.Address,
 
-        pub fn init(io: IOType, storage: StorageType) !Server {
+        pub fn init(io: IOType, storage: StorageType, listenAddr: net.Address) !Server {
             return .{
                 .io = io,
                 .storage = storage,
+                .listenAddr = listenAddr,
             };
         }
 
         // listen blocks on accepting a connection to the configured address
         pub fn listen(server: *Server) !void {
+            try server.io.listen(server.listenAddr);
             while (true) {
                 try server.io.accept();
                 // TODO: bigger buffer? figure out how large single messages can be?
@@ -38,7 +42,7 @@ pub fn ServerType(comptime IOType: type, comptime StorageType: type) type {
                     const n = try server.io.recv(&buf);
                     if (n == 0) {
                         log.info("connection closed", .{});
-                        try server.io.close();
+                        try server.io.close_conn();
                         break;
                     }
                     log.debug("got request: {s} n:{d}", .{ buf[0..n], n });

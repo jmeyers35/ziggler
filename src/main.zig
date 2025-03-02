@@ -35,13 +35,13 @@ pub fn main() !void {
     const port: u16 = if (res.args.port) |p| p else 42069;
 
     const addr = try std.net.Address.resolveIp("127.0.0.1", port);
-    var netIO = try io.IO.init(addr);
+    var netIO = try io.IO.init();
     defer netIO.deinit();
 
     var memStorage = kv.InMemoryStore.init(alloc);
     defer memStorage.deinit();
 
-    var srv = try server.ServerType(io.IO, kv.InMemoryStore).init(netIO, memStorage);
+    var srv = try server.ServerType(io.IO, kv.InMemoryStore).init(netIO, memStorage, addr);
     log.info("starting ziggler server on port {d}", .{port});
     try srv.listen();
 }
