@@ -22,7 +22,7 @@ pub const IO = struct {
         io.open = true;
     }
 
-    pub fn read(io: *IO, buf: []u8) !usize {
+    pub fn recv(io: *IO, buf: []u8) !usize {
         assert(io.open);
         assert(io.conn != null);
 

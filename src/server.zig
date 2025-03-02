@@ -35,7 +35,7 @@ pub fn ServerType(comptime IOType: type, comptime StorageType: type) type {
 
                 while (true) {
                     // TODO: handle connection reset errors, etc
-                    const n = try server.io.read(&buf);
+                    const n = try server.io.recv(&buf);
                     if (n == 0) {
                         log.info("connection closed", .{});
                         try server.io.close();
