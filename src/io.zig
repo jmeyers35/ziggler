@@ -119,6 +119,10 @@ pub const PosixIO = struct {
         _ = posix.fcntl(fd, posix.F.FULLFSYNC, 1) catch return posix.fsync(fd);
     }
 
+    pub fn read(_: *PosixIO, fd: fd_t, buf: []u8, offset: u64) !usize {
+        return posix.pread(fd, buf, offset);
+    }
+
     pub fn deinit(io: *PosixIO) void {
         io.tcp_conn.deinit();
     }
