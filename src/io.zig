@@ -76,8 +76,6 @@ pub const PosixIO = struct {
         assert(path.len > 0);
         const flags: posix.O = .{
             .ACCMODE = .RDONLY,
-            .APPEND = true,
-            .CREAT = true,
         };
         const fd = try posix.open(path, flags, 0);
         errdefer posix.close(fd);
@@ -86,10 +84,15 @@ pub const PosixIO = struct {
 
     pub fn open_data_file(_: *PosixIO, dirFD: fd_t, relativePath: []const u8) !fd_t {
         assert(relativePath.len > 0);
+        // c.f. tigerbeetle
+        // Be careful with openat(2): "If pathname is absolute, then dirfd is ignored." (man page)
+        assert(!std.fs.path.isAbsolute(relativePath));
+
         const flags: posix.O = .{
             .ACCMODE = .RDWR,
             .APPEND = true,
             .CREAT = true,
+            .DSYNC = true, // c.f. tigerbeetle: src/io/darwin.zig. i'll have to figure out later if i actually want to support mac or just do linux. apparently this flag is crucial for fsync.
         };
         const fd = try posix.openat(dirFD, relativePath, flags, 0o666);
         errdefer posix.close(fd);
@@ -98,6 +101,22 @@ pub const PosixIO = struct {
 
     pub fn close(_: *PosixIO, fd: fd_t) void {
         posix.close(fd);
+    }
+
+    pub fn write(_: *PosixIO, fd: fd_t, bytes: []const u8) !usize {
+        // TODO: better error handling?
+        const n = try posix.write(fd, bytes);
+        // Just assume we do indeed want all disk writes fully fsync'd every time for now.
+        try fs_sync(fd);
+        return n;
+    }
+
+    // c.f. tigerbeetle
+    fn fs_sync(fd: fd_t) !void {
+        // TODO: This is of dubious safety - it's _not_ safe to fall back on posix.fsync unless it's
+        // known at startup that the disk (eg, an external disk on a Mac) doesn't support
+        // F_FULLFSYNC.
+        _ = posix.fcntl(fd, posix.F.FULLFSYNC, 1) catch return posix.fsync(fd);
     }
 
     pub fn deinit(io: *PosixIO) void {

@@ -1,6 +1,8 @@
 const std = @import("std");
 const log = std.log;
 
+const assert = std.debug.assert;
+
 pub fn StorageType(comptime IOType: type, comptime MemstoreType: type) type {
     return struct {
         const Storage = @This();
@@ -17,6 +19,8 @@ pub fn StorageType(comptime IOType: type, comptime MemstoreType: type) type {
 
             const dataFileFD = try io.open_data_file(dataDirFD, "zigger.log");
             log.info("opened data file at {s}/ziggler.log", .{dataFileDirPath});
+
+            // TODO: read any present data back into the in-memory store
 
             return .{
                 .dataDirFD = dataDirFD,
@@ -36,7 +40,15 @@ pub fn StorageType(comptime IOType: type, comptime MemstoreType: type) type {
         }
 
         pub fn set(storage: *Storage, key: []const u8, value: []const u8) !void {
-            return storage.memstore.set(key, value);
+            try storage.memstore.set(key, value);
+            // Write to data file
+            // TODO: actually define a binary format and serialize/deserialize via abstractions
+            var buffer: [2048]u8 = undefined; // TODO: actually define a maximum key length and figure out what this value should be
+            const len_needed = 3 + 3 + key.len + value.len;
+            assert(len_needed <= 2048);
+            var buffer_stream = std.io.fixedBufferStream(&buffer);
+            try std.fmt.format(buffer_stream.writer(), "SET,{s},{s}\n", .{ key, value });
+            _ = try storage.io.write(storage.dataFileFD, buffer[0..len_needed]);
         }
     };
 }
