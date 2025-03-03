@@ -18,19 +18,19 @@ pub fn ServerType(comptime IOType: type, comptime StorageType: type) type {
         // Configured options
         io: IOType,
         storage: StorageType,
-        listenAddr: net.Address,
+        listen_addr: net.Address,
 
-        pub fn init(io: IOType, storage: StorageType, listenAddr: net.Address) !Server {
+        pub fn init(io: IOType, storage: StorageType, listen_addr: net.Address) !Server {
             return .{
                 .io = io,
                 .storage = storage,
-                .listenAddr = listenAddr,
+                .listen_addr = listen_addr,
             };
         }
 
         // listen blocks on accepting a connection to the configured address
         pub fn listen(server: *Server) !void {
-            try server.io.listen(server.listenAddr);
+            try server.io.listen(server.listen_addr);
             while (true) {
                 try server.io.accept();
                 // TODO: bigger buffer? figure out how large single messages can be?
@@ -62,7 +62,6 @@ pub fn ServerType(comptime IOType: type, comptime StorageType: type) type {
             };
             if (parsed.operation == Operation.get) {
                 const got = server.storage.get(parsed.key) orelse "<null>";
-                log.info("got value {s}(len:{d}) for key {s}", .{ got, got.len, parsed.key });
                 // TODO: figure out constraints around value sizes? we probably
                 // can't get away with static allocations here forever (or can we?)
                 // for now: we'll assert values are 1K or smaller

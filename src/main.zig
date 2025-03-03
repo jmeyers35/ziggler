@@ -36,15 +36,15 @@ pub fn main() !void {
     const port: u16 = if (res.args.port) |p| p else 42069;
 
     const addr = try std.net.Address.resolveIp("127.0.0.1", port);
-    var posIO = try io.PosixIO.init();
-    defer posIO.deinit();
+    var posix_io = try io.PosixIO.init();
+    defer posix_io.deinit();
 
-    const memStorage = kv.InMemoryStore.init(alloc);
+    const mem_storage = kv.InMemoryStore.init(alloc);
 
-    var diskStorage = try storage.StorageType(io.PosixIO, kv.InMemoryStore).init(&posIO, memStorage, "/tmp/ziggler/test");
-    defer diskStorage.deinit();
+    var disk_storage = try storage.StorageType(io.PosixIO, kv.InMemoryStore).init(&posix_io, mem_storage, "/tmp/ziggler/test");
+    defer disk_storage.deinit();
 
-    var srv = try server.ServerType(io.PosixIO, storage.StorageType(io.PosixIO, kv.InMemoryStore)).init(posIO, diskStorage, addr);
+    var srv = try server.ServerType(io.PosixIO, storage.StorageType(io.PosixIO, kv.InMemoryStore)).init(posix_io, disk_storage, addr);
     log.info("starting ziggler server on port {d}", .{port});
     try srv.listen();
 }

@@ -82,11 +82,11 @@ pub const PosixIO = struct {
         return fd;
     }
 
-    pub fn open_data_file(_: *PosixIO, dirFD: fd_t, relativePath: []const u8) !fd_t {
-        assert(relativePath.len > 0);
+    pub fn open_data_file(_: *PosixIO, dir_fd: fd_t, relative_path: []const u8) !fd_t {
+        assert(relative_path.len > 0);
         // c.f. tigerbeetle
         // Be careful with openat(2): "If pathname is absolute, then dirfd is ignored." (man page)
-        assert(!std.fs.path.isAbsolute(relativePath));
+        assert(!std.fs.path.isAbsolute(relative_path));
 
         const flags: posix.O = .{
             .ACCMODE = .RDWR,
@@ -94,7 +94,7 @@ pub const PosixIO = struct {
             .CREAT = true,
             .DSYNC = true, // c.f. tigerbeetle: src/io/darwin.zig. i'll have to figure out later if i actually want to support mac or just do linux. apparently this flag is crucial for fsync.
         };
-        const fd = try posix.openat(dirFD, relativePath, flags, 0o666);
+        const fd = try posix.openat(dir_fd, relative_path, flags, 0o666);
         errdefer posix.close(fd);
         return fd;
     }
