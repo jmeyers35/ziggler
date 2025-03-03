@@ -2,6 +2,8 @@ const std = @import("std");
 const mem = std.mem;
 const ascii = std.ascii;
 
+const assert = std.debug.assert;
+
 const constants = @import("constants.zig");
 
 pub const Operation = enum {
@@ -70,6 +72,47 @@ pub fn parse_request(request: []const u8) RequestParseError!ParsedRequest {
     return parsed;
 }
 
+const response_terminator = "\r\n";
+
+pub const SerializedResponse = struct {
+    data: [constants.MAX_VALUE_SIZE + response_terminator.len]u8,
+    len: usize,
+};
+
+pub const Response = union(enum) {
+    Ok,
+    Error: []const u8,
+    Data: ?[]const u8,
+
+    pub fn serialize(self: Response) SerializedResponse {
+        var out: SerializedResponse = .{ .data = undefined, .len = 0 };
+
+        switch (self) {
+            .Ok => append(&out, "Ok"),
+            .Data => |maybe_value| {
+                if (maybe_value == null) {
+                    append(&out, "<null>");
+                } else {
+                    const value = maybe_value.?;
+                    // Optionally, check that value.len is within limits
+                    append(&out, value);
+                }
+            },
+            .Error => |message| {
+                append(&out, "ERROR: ");
+                append(&out, message);
+            },
+        }
+        append(&out, response_terminator);
+        return out;
+    }
+
+    fn append(out: *SerializedResponse, s: []const u8) void {
+        std.mem.copyForwards(u8, out.data[out.len .. out.len + s.len], s);
+        out.len += s.len;
+    }
+};
+
 const testing = std.testing;
 const expect = testing.expect;
 const expectEqual = testing.expectEqual;
@@ -107,4 +150,22 @@ test "set request, no key" {
 
 test "set request, no value" {
     try expectError(RequestParseError.MissingValue, parse_request("SET foo"));
+}
+
+test "response serialize, Ok" {
+    const resp = Response.Ok;
+    const serialized = Response.serialize(resp);
+    try expectEqualStrings("Ok\r\n", serialized.data[0..serialized.len]);
+}
+
+test "response serialize, Data, non-null" {
+    const resp = Response{ .Data = "foobar" };
+    const serialized = Response.serialize(resp);
+    try expectEqualStrings("foobar\r\n", serialized.data[0..serialized.len]);
+}
+
+test "response serialize, Data, null" {
+    const resp = Response{ .Data = null };
+    const serialized = Response.serialize(resp);
+    try expectEqualStrings("<null>\r\n", serialized.data[0..serialized.len]);
 }
