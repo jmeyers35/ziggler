@@ -9,7 +9,7 @@ const assert = std.debug.assert;
 const protocol = @import("protocol.zig");
 const Operation = protocol.Operation;
 
-const MAX_VAL_LENGTH = 1024;
+const constants = @import("constants.zig");
 
 // TODO: pass address in here and let server configure the IO?
 pub fn ServerType(comptime IOType: type, comptime StorageType: type) type {
@@ -66,16 +66,22 @@ pub fn ServerType(comptime IOType: type, comptime StorageType: type) type {
                 // can't get away with static allocations here forever (or can we?)
                 // for now: we'll assert values are 1K or smaller
                 // maybe we'll go after very small keys and values, predictable performance
-                assert(got.len <= MAX_VAL_LENGTH);
+                assert(got.len <= constants.MAX_VALUE_SIZE);
                 var buf: [1026]u8 = undefined;
                 mem.copyForwards(u8, buf[0..got.len], got);
                 buf[got.len] = '\r';
                 buf[got.len + 1] = '\n';
                 try server.io.send(buf[0 .. got.len + 2]);
             } else if (parsed.operation == Operation.set) {
+                // TODO: probably move these assertions to the parsing layer
+                if (parsed.key.len > constants.MAX_VALUE_SIZE) {
+                    try server.io.send("Error\r\n");
+                    log.err("key too large: {d}", .{parsed.key.len});
+                    return;
+                }
                 assert(parsed.value != null);
                 const val = parsed.value.?;
-                if (val.len > MAX_VAL_LENGTH) {
+                if (val.len > constants.MAX_VALUE_SIZE) {
                     try server.io.send("Error\r\n");
                     log.err("value too large: {d}", .{val.len});
                     return;
@@ -85,7 +91,6 @@ pub fn ServerType(comptime IOType: type, comptime StorageType: type) type {
                     log.err("error writing to storage: {any}", .{err});
                     return;
                 };
-                log.info("set key {s} to {s}", .{ parsed.key, val });
                 try server.io.send("OK\r\n");
             }
         }

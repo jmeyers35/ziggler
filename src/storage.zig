@@ -4,9 +4,59 @@ const mem = std.mem;
 
 const assert = std.debug.assert;
 
+const protocol = @import("protocol.zig");
+const Operation = protocol.Operation;
+
+const constants = @import("constants.zig");
+
 pub fn StorageType(comptime IOType: type, comptime MemstoreType: type) type {
     return struct {
         const Storage = @This();
+
+        // TODO: i think this is going to end up being the WAL? we'll probably have a dedicated
+        // struct for on-disk SSTables
+        pub const LogEntry = struct {
+            key: []const u8,
+            value: []const u8,
+
+            /// On-disk delimiter between `LogEntry`s
+            pub const entry_delimiter = '\n';
+            /// On-disk delimiter _within_ a `LogEntry` between fields. Opaque to consumers.
+            const kv_delimiter = ',';
+
+            pub fn serialize(entry: LogEntry, writer: anytype) !usize {
+                const len = entry.key.len + entry.value.len + 2; // one byte each for the delimiter and
+                try std.fmt.format(writer, "{s}{c}{s}{c}", .{ entry.key, kv_delimiter, entry.value, entry_delimiter });
+                return len;
+            }
+
+            pub const MalformedLogError = error{
+                MissingKey,
+                MissingValue,
+            };
+
+            // Deserialize bytes into a LogEntry. It's assumed that the caller has done the work of
+            // splitting on `entry_delimiter`, and the input is one of the results of that split.
+            pub fn deserialize(bytes: []const u8) MalformedLogError!LogEntry {
+                assert(bytes.len > 0);
+                var fields_it = mem.splitScalar(u8, bytes, kv_delimiter);
+
+                const key = fields_it.next();
+                if (key == null) {
+                    return MalformedLogError.MissingKey;
+                }
+
+                const value = fields_it.next();
+                if (value == null) {
+                    return MalformedLogError.MissingValue;
+                }
+
+                return .{
+                    .key = key.?,
+                    .value = value.?,
+                };
+            }
+        };
 
         data_dir_fd: IOType.fd_t,
         data_file_fd: IOType.fd_t,
@@ -52,36 +102,27 @@ pub fn StorageType(comptime IOType: type, comptime MemstoreType: type) type {
                 return;
             }
 
-            // Split around newlines
-            // TODO: define real binary format and handle partial reads of a record, detect corruption, all that good stuff
-            var records_it = mem.splitScalar(u8, buf[0..bytes_read], '\n');
-            var curr_record = records_it.next();
+            var entries_it = mem.splitScalar(u8, buf[0..bytes_read], LogEntry.entry_delimiter);
+            var curr_entry = entries_it.next();
 
             // We know we're not empty, so we'd better assert the data file is well-formed
             // splitScalar returns the _entire_ buffer first if the delimiter isn't found in the bytes, so if that's the case, we have a malformed data file
-            assert(curr_record != null);
-            assert(curr_record.?.len != bytes_read);
+            assert(curr_entry != null);
+            assert(curr_entry.?.len != bytes_read);
 
-            while (curr_record != null) {
-                const record = curr_record.?;
+            while (curr_entry != null) {
+                const entry = curr_entry.?;
 
-                if (record.len == 0) {
-                    curr_record = records_it.next();
+                if (entry.len == 0) {
+                    curr_entry = entries_it.next();
                     continue;
                 }
-                // For now, log entries are comma separated, with the first entry being the write operation, the second entry being the key's bytes, and the third being the value's bytes
-                var record_it = mem.splitScalar(u8, record, ',');
-                _ = record_it.first();
 
-                const key = record_it.next();
-                assert(key != null);
+                const parsed_log_entry = LogEntry.deserialize(entry) catch unreachable; // Corrupt data file, bail out
 
-                const value = record_it.next();
-                assert(value != null);
+                try storage.memstore.set(parsed_log_entry.key, parsed_log_entry.value);
 
-                try storage.memstore.set(key.?, value.?);
-
-                curr_record = records_it.next();
+                curr_entry = entries_it.next();
             }
         }
 
@@ -92,20 +133,26 @@ pub fn StorageType(comptime IOType: type, comptime MemstoreType: type) type {
         }
 
         pub fn get(storage: *Storage, key: []const u8) ?[]const u8 {
-            // TODO: read from disk if not in memory
             return storage.memstore.get(key);
         }
 
         pub fn set(storage: *Storage, key: []const u8, value: []const u8) !void {
-            try storage.memstore.set(key, value);
-            // Write to data file
-            // TODO: actually define a binary format and serialize/deserialize via abstractions
-            var buffer: [2048]u8 = undefined; // TODO: actually define a maximum key length and figure out what this value should be
-            const len_needed = 3 + 3 + key.len + value.len;
-            assert(len_needed <= 2048);
+            assert(key.len > 0);
+            assert(value.len > 0);
+            assert(key.len <= constants.MAX_KEY_SIZE);
+            assert(value.len <= constants.MAX_VALUE_SIZE);
+
+            var buffer: [2048]u8 = undefined; // TODO: change 2048 to something more reasonable? we'd need log_entry to tell us the additional space overhead to serialize a k/v pair (delimiters)
             var buffer_stream = std.io.fixedBufferStream(&buffer);
-            try std.fmt.format(buffer_stream.writer(), "SET,{s},{s}\n", .{ key, value });
-            _ = try storage.io.write(storage.data_file_fd, buffer[0..len_needed]);
+            const log_entry: LogEntry = .{
+                .key = key,
+                .value = value,
+            };
+            const n = try log_entry.serialize(buffer_stream.writer()); // Corrupt data file; fail
+            _ = try storage.io.write(storage.data_file_fd, buffer[0..n]);
+
+            // write to log _must_ succeed before reflecting value back to clients, for durability
+            try storage.memstore.set(key, value);
         }
     };
 }
