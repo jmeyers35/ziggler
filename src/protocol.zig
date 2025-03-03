@@ -2,6 +2,8 @@ const std = @import("std");
 const mem = std.mem;
 const ascii = std.ascii;
 
+const constants = @import("constants.zig");
+
 pub const Operation = enum {
     get,
     set,
@@ -14,7 +16,10 @@ pub const Operation = enum {
 
 pub const RequestParseError = error{
     InvalidOperation,
-    InvalidArguments,
+    MissingKey,
+    MissingValue,
+    KeyTooLarge,
+    ValueTooLarge,
 };
 
 pub const ParsedRequest = struct {
@@ -43,14 +48,20 @@ pub fn parse_request(request: []const u8) RequestParseError!ParsedRequest {
     const request_key = it.next();
     if (request_key == null) {
         // All requests must have a key present
-        return RequestParseError.InvalidArguments;
+        return RequestParseError.MissingKey;
+    }
+    if (request_key.?.len > constants.MAX_KEY_SIZE) {
+        return RequestParseError.KeyTooLarge;
     }
     parsed.key = mem.trimRight(u8, request_key.?, "\n");
 
     const maybe_value = it.next();
     if (parsed_op == Operation.set and maybe_value == null) {
         // SET requests must also have a value
-        return RequestParseError.InvalidArguments;
+        return RequestParseError.MissingValue;
+    }
+    if (parsed_op == Operation.set and maybe_value.?.len > constants.MAX_VALUE_SIZE) {
+        return RequestParseError.ValueTooLarge;
     }
     if (parsed_op == Operation.set) {
         parsed.value = mem.trimRight(u8, maybe_value.?, "\n");
