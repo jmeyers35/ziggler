@@ -98,13 +98,13 @@ test "unrecognized operation" {
 }
 
 test "get request, no key" {
-    try expectError(RequestParseError.InvalidArguments, parse_request("GET"));
+    try expectError(RequestParseError.MissingKey, parse_request("GET"));
 }
 
 test "set request, no key" {
-    try expectError(RequestParseError.InvalidArguments, parse_request("SET"));
+    try expectError(RequestParseError.MissingKey, parse_request("SET"));
 }
 
 test "set request, no value" {
-    try expectError(RequestParseError.InvalidArguments, parse_request("SET foo"));
+    try expectError(RequestParseError.MissingValue, parse_request("SET foo"));
 }
