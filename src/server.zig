@@ -56,18 +56,18 @@ pub fn ServerType(comptime IOType: type, comptime StorageType: type) type {
                 return;
             };
 
-            assert(parsed.key.len <= constants.MAX_KEY_SIZE);
+            assert(parsed.key.len <= constants.VALUE_SIZE_MIN);
 
             var serialized_response: protocol.SerializedResponse = undefined;
 
             if (parsed.operation == Operation.get) {
                 const got = server.storage.get(parsed.key) orelse "<null>";
-                assert(got.len <= constants.MAX_VALUE_SIZE);
+                assert(got.len <= constants.VALUE_SIZE_MAX);
                 serialized_response = protocol.Response.serialize(protocol.Response{ .Data = got });
             } else if (parsed.operation == Operation.set) {
                 assert(parsed.value != null);
                 const val = parsed.value.?;
-                assert(val.len <= constants.MAX_VALUE_SIZE);
+                assert(val.len <= constants.VALUE_SIZE_MAX);
                 server.storage.set(parsed.key, val) catch |err| {
                     const resp = protocol.Response{ .Error = "persist error" };
                     const serialized = protocol.Response.serialize(resp);

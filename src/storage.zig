@@ -139,8 +139,8 @@ pub fn StorageType(comptime IOType: type, comptime MemstoreType: type) type {
         pub fn set(storage: *Storage, key: []const u8, value: []const u8) !void {
             assert(key.len > 0);
             assert(value.len > 0);
-            assert(key.len <= constants.MAX_KEY_SIZE);
-            assert(value.len <= constants.MAX_VALUE_SIZE);
+            assert(key.len <= constants.VALUE_SIZE_MIN);
+            assert(value.len <= constants.VALUE_SIZE_MAX);
 
             var buffer: [2048]u8 = undefined; // TODO: change 2048 to something more reasonable? we'd need log_entry to tell us the additional space overhead to serialize a k/v pair (delimiters)
             var buffer_stream = std.io.fixedBufferStream(&buffer);

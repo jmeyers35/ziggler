@@ -52,7 +52,7 @@ pub fn parse_request(request: []const u8) RequestParseError!ParsedRequest {
         // All requests must have a key present
         return RequestParseError.MissingKey;
     }
-    if (request_key.?.len > constants.MAX_KEY_SIZE) {
+    if (request_key.?.len > constants.VALUE_SIZE_MIN) {
         return RequestParseError.KeyTooLarge;
     }
     parsed.key = mem.trimRight(u8, request_key.?, "\n");
@@ -62,7 +62,7 @@ pub fn parse_request(request: []const u8) RequestParseError!ParsedRequest {
         // SET requests must also have a value
         return RequestParseError.MissingValue;
     }
-    if (parsed_op == Operation.set and maybe_value.?.len > constants.MAX_VALUE_SIZE) {
+    if (parsed_op == Operation.set and maybe_value.?.len > constants.VALUE_SIZE_MAX) {
         return RequestParseError.ValueTooLarge;
     }
     if (parsed_op == Operation.set) {
@@ -75,7 +75,7 @@ pub fn parse_request(request: []const u8) RequestParseError!ParsedRequest {
 const response_terminator = "\r\n";
 
 pub const SerializedResponse = struct {
-    data: [constants.MAX_VALUE_SIZE + response_terminator.len]u8,
+    data: [constants.VALUE_SIZE_MAX + response_terminator.len]u8,
     len: usize,
 };
 
