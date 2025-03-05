@@ -37,7 +37,6 @@ pub fn main() !void {
 
     const addr = try std.net.Address.resolveIp("127.0.0.1", port);
     var posix_io = try io.PosixIO.init();
-    defer posix_io.deinit();
 
     const mem_storage = kv.InMemoryStore.init(alloc);
 
