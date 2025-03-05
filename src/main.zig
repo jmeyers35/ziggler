@@ -10,9 +10,10 @@ const storage = @import("storage.zig");
 const clap = @import("clap");
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer assert(gpa.deinit() == std.heap.Check.ok);
-    const alloc = gpa.allocator();
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+
+    const alloc = arena.allocator();
 
     const params = comptime clap.parseParamsComptime(
         \\-h, --help  Display this help and exit.
