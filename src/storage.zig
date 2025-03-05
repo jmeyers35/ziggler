@@ -127,7 +127,7 @@ pub fn StorageType(comptime IOType: type, comptime MemstoreType: type) type {
         }
 
         pub fn deinit(storage: *Storage) void {
-            storage.io.close(storage.data_dir_fd);
+            storage.io.close(storage.data_file_fd);
             storage.io.close(storage.data_dir_fd);
             storage.memstore.deinit();
         }
