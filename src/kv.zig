@@ -15,12 +15,23 @@ pub const InMemoryStore = struct {
     }
 
     pub fn deinit(store: *InMemoryStore) void {
+        var it = store.map.iterator();
+        while (it.next()) |entry| {
+            store.alloc.free(entry.key_ptr.*);
+            store.alloc.free(entry.value_ptr.*);
+        }
         store.map.deinit();
     }
 
     pub fn set(store: *InMemoryStore, key: []const u8, value: []const u8) !void {
         const key_copy = try store.alloc.dupe(u8, key);
         const value_copy = try store.alloc.dupe(u8, value);
+        const maybe_kv = store.map.fetchSwapRemove(key);
+        // if we're clobbering an existing key, free the previous key/value
+        if (maybe_kv) |kv| {
+            store.alloc.free(kv.key);
+            store.alloc.free(kv.value);
+        }
         try store.map.put(key_copy, value_copy);
     }
 
