@@ -46,7 +46,13 @@ pub const PosixIO = struct {
 
     pub fn recv(io: *PosixIO, fd: socket_t, buf: []u8) !usize {
         _ = io;
-        return posix.recv(fd, buf, 0);
+        const n = posix.recv(fd, buf, 0) catch |err| {
+            switch (err) {
+                posix.RecvFromError.ConnectionResetByPeer => return 0,
+                else => return err,
+            }
+        };
+        return n;
     }
 
     pub fn send(io: *PosixIO, fd: socket_t, bytes: []const u8) !void {
