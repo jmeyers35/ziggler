@@ -59,7 +59,7 @@ pub fn ServerType(comptime IOType: type, comptime StorageType: type) type {
                 return;
             };
 
-            assert(parsed.key.len <= constants.VALUE_SIZE_MIN);
+            assert(parsed.key.len <= constants.KEY_SIZE_MIN);
 
             var serialized_response: protocol.SerializedResponse = undefined;
 
