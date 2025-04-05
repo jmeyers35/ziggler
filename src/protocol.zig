@@ -52,7 +52,7 @@ pub fn parse_request(request: []const u8) RequestParseError!ParsedRequest {
         // All requests must have a key present
         return RequestParseError.MissingKey;
     }
-    if (request_key.?.len > constants.KEY_SIZE_MIN) {
+    if (request_key.?.len > constants.KEY_SIZE_MAX) {
         return RequestParseError.KeyTooLarge;
     }
     parsed.key = mem.trimRight(u8, request_key.?, "\n");
